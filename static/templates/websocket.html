@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Matlab WebSocket</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <h1>Matlab WebSocket</h1>
+            <form action="" onsubmit="sendMessage(event)">
+                <p>Please provide your email. Email must be registered via /users/register endpoint.</p>
+                <p>If you get Disconnected after clicking on connect, check your email adress or check if any of the Matlab instances is free right now via /matlab/get-matlab-instances endpoint.</p>
+                <label>Email adress: <input type="text" id="email" class="form-control" autocomplete="off"/></label>
+                <br><br>
+                <button id="connect_button" class="btn" onclick="connect(event)">Connect</button>
+                <p id="info"></p>
+                <hr style="height:2px; width:100%; border-width:0; color:red; background-color:red">
+                <p>Please provide name of the model with extension .slx or .mdl. If model does not exist you will be Disconnected.
+                </p>
+                <label>Name of your model: <input type="text" id="modelName" class="form-control" autocomplete="off"/></label>
+                <br><br>
+                <p>You must choose block that is a RuntimeObject (for example Gain, Sine Wave,...).
+                    Virtual blocks (see <a href="https://www.mathworks.com/help/simulink/ug/nonvirtual-and-virtual-blocks.html">Nonvirtual and Virtual Blocks</a>) do not have run-time objects.
+                    Blocks eliminated during model compilation as an optimization also do not have run-time objects (see  <a href="https://www.mathworks.com/help/simulink/gui/block-reduction.html">Block reduction</a>).
+                </p>
+                <p>Desired blocks should be in format: Sine Wave,Gain,Gain1. There must not be any whitespaces between your desired blocks.
+                    But write name of the blocks exactly as they are in model even with whitespace, like Sine Wave (You can get names of
+                    blocks via /matlab/model-list-blocks endpoint). Otherwise you will be Disconnected.
+                </p>
+                <label>Which blocks you want data from ? <input type="text" id="blocks" class="form-control" autocomplete="off"/></label>
+                <br>
+                <button class="btn" >Send</button>
+            </form>
+            <ul id='messages'>
+            </ul>
+
+            <div id="blocks_data">
+
+            </div>
+          </div>
+
+        <script>
+        var ws = null;
+            function connect(event) {
+                var email = document.getElementById("email");
+                ws = new WebSocket("wss://apis.iolab.sk/matlab/ws?email=" + email.value);
+                ws.onmessage = function(event) {
+                    var data_arr = event.data.split(":")
+                    var textarea = document.getElementById(data_arr[0]);
+                    textarea.append(data_arr[1]);
+                    textarea.append('\r\n');
+                };
+                ws.onopen = async (event) => {
+                    var info = document.getElementById("info");
+                    info.innerHTML = "<br>" + "Connected!";
+                    info.className = "text-success"
+                    var connect_button = document.getElementById("connect_button");
+                    connect_button.disabled = true;
+                }
+                ws.onclose = async (event) => {
+                    var info = document.getElementById("info");
+                    info.innerHTML = "<br>" + "Disconnected!";
+                    info.className = "text-danger"
+                    var connect_button = document.getElementById("connect_button");
+                    connect_button.disabled = false;
+                }
+                event.preventDefault()
+            }
+            function sendMessage(event) {
+                var modelName = document.getElementById("modelName")
+                ws.send(modelName.value)
+
+                var blocks = document.getElementById("blocks")
+                blocks_arr = blocks.value.split(",")
+                var div = document.getElementById("blocks_data")
+                blocks_arr.forEach(block => {
+                    var block_name = document.createElement("label");
+                    block_name.innerHTML = block;
+                    div.appendChild(block_name);
+                    var input = document.createElement("textarea");
+                    input.id = block;
+                    input.rows = "4";
+                    input.className="form-control";
+                    div.appendChild(input);
+                });
+                ws.send(blocks.value)
+
+                event.preventDefault()
+            }
+        </script>
+    </body>
+</html>
